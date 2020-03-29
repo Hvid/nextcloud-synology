@@ -1,0 +1,3 @@
+FROM schnitzler/mysqldump:latest
+
+COPY script.sh /etc/periodic/daily/script.sh

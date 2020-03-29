@@ -1,0 +1,153 @@
+version: "2"
+services: 
+    app:
+        container_name: "${PREFIX}-app"
+        hostname:  "${PREFIX}-app"
+        build: ./nextcloud
+        environment:
+            - "MYSQL_USER=nextcloud_user"
+            - "MYSQL_DATABASE=nextcloud_db"
+            - "MYSQL_PASSWORD=${MYSQL_PASSWORD}"
+            - "MYSQL_HOST=mysql"
+            - "REDIS_HOST=redis"
+            - "SMTP_HOST=smtp"
+            - "SMTP_PORT=25"
+            - "SMTP_AUTHTYPE=none"
+            - "MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}"
+            - "MAIL_DOMAIN=${MAIL_DOMAIN}"
+        volumes:
+            - html:/var/www/html
+            - php:/usr/local/etc
+        restart: unless-stopped
+        networks:
+            - nextcloud
+        depends_on: 
+            - mysql
+            - redis
+            - smtp
+
+    web:
+        container_name: "${PREFIX}-web"
+        hostname: "${PREFIX}-web"
+        build: ./web
+        ports: 
+            - "${WEB_PUBLIC_PORT}:80/tcp"
+        volumes:
+            - html:/var/www/html
+            - nginx:/etc/nginx
+        restart: unless-stopped
+        networks:
+            - nextcloud
+        depends_on:
+            - app
+
+    redis:
+        container_name: "${PREFIX}-redis"
+        hostname: "${PREFIX}-redis"
+        image: redis:alpine
+        command: 
+            - --appendonly yes
+        volumes: 
+            - redis:/data
+        restart: unless-stopped
+        networks:
+            - nextcloud
+
+    mysql:
+        container_name: "${PREFIX}-mysql"
+        hostname: "${PREFIX}-mysql"
+        image: mariadb:latest
+        command: 
+            - --innodb-buffer-pool-size=2G --innodb_io_capacity=4000 --transaction-isolation=READ-COMMITTED --log_bin --binlog-format=ROW --innodb_file_per_table --innodb_adaptive_hash_index=OFF --innodb_flush_log_at_trx_commit=2 --innodb_flush_method=O_DIRECT --innodb_flush_neighbors=0 --innodb_lru_scan_depth=256 --innodb_purge_threads=1 --performance_schema=OFF --max_connections=1000
+        environment: 
+            - "MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}"
+            - "MYSQL_DATABASE=nextcloud_db"
+            - "MYSQL_USER=nextcloud_user"
+            - "MYSQL_PASSWORD=${MYSQL_PASSWORD}"
+        volumes: 
+            - mysql:/var/lib/mysql
+        restart: unless-stopped
+        networks:
+            - nextcloud
+    
+    cron:
+        container_name: "${PREFIX}-cron"
+        hostname:  "${PREFIX}-cron"
+        build: ./nextcloud
+        entrypoint: 
+            - /cron.sh
+        volumes: 
+            - html:/var/www/html
+        restart: unless-stopped
+        networks:
+            - nextcloud
+        depends_on: 
+            - app
+    
+    mysqldump:
+        container_name: "${PREFIX}-mysqldump"
+        hostname: "${PREFIX}-mysqldump"
+        build: ./mysqldump
+        environment:
+            - "MYSQL_USER=nextcloud_user"
+            - "MYSQL_DATABASE=nextcloud_db"
+            - "MYSQL_PASSWORD=${MYSQL_PASSWORD}"
+            - "MYSQL_HOST=mysql"
+        volumes: 
+            - mysqldump:/backup"
+        restart: unless-stopped
+        networks: 
+            - nextcloud
+        depends_on: 
+            - mysql
+    
+    smtp:
+        container_name: "${PREFIX}-smtp"
+        hostname: "${PREFIX}-smtp"
+        image: namshi/smtp:latest
+        environment: 
+            - "MAILNAME=${SMTP_HOSTNAME}"
+        restart: unless-stopped
+        networks: 
+            - nextcloud
+
+volumes: 
+    html:
+        driver: local
+        driver_opts: 
+            type: none
+            device: "${BASE_PATH}/app/html"
+            o: bind
+    nginx:
+        driver: local
+        driver_opts: 
+            type: none
+            device: "${BASE_PATH}/web/nginx"
+            o: bind
+    php:
+        driver: local
+        driver_opts: 
+            type: none
+            device: "${BASE_PATH}/app/php"
+            o: bind
+    redis:
+        driver: local
+        driver_opts: 
+            type: none
+            device: "${BASE_PATH}/redis"
+            o: bind
+    mysql:
+        driver: local
+        driver_opts: 
+            type: none
+            device: "${BASE_PATH}/mysql"
+            o: bind
+    mysqldump:
+        driver: local
+        driver_opts: 
+            type: none
+            device: "${BASE_PATH}/mysqldump"
+            o: bind
+
+networks:
+    nextcloud:
