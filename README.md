@@ -13,6 +13,7 @@ This is a "stack" for importing into portainer, running a my synology.
 |SMTP_HOSTNAME|smtp.domain.com|Outbound hostname for SMTP|
 |MAIL_FROM_ADDRESS|nextcloud|The name for the @ in the from mail|
 |MAIL_DOMAIN|domain.com| The name after the @ in the from mail|
+|REDIS_HOST_PASSWORD|Password!| Password for redis|
 
 ### Folders needs to be created manually under BASE_PATH:
 
